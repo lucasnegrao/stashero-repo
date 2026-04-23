@@ -1,0 +1,22 @@
+name: Scene Renamer
+description: Rename scene files based on metadata with customizable templates
+version: 1.0.0
+url: https://github.com/lucasnegrao/stash_renamer
+ui:
+  javascript:
+    - "ui/bundle.js"
+exec:
+  - python3
+  - "{pluginDir}/stash_renamer.py"
+interface: raw
+
+hooks:
+  - name: Rename Scene On Update
+    description: Run configured rename templates after scene updates
+    triggeredBy:
+      - Scene.Update.Post
+    defaultArgs:
+      mode: "hook:run"
+      hook_type: Scene.Update.Post
+      dry_run: "false"
+      debugMode: "false"
