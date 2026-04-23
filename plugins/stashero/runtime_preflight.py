@@ -8,6 +8,7 @@ plugin bootstraps backend imports.
 from __future__ import annotations
 
 import importlib.metadata
+import importlib
 import json
 import re
 import subprocess
@@ -17,6 +18,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 MIN_PYTHON_VERSION: Tuple[int, int] = (3, 9)
+REQUIREMENT_IMPORT_OVERRIDES: Dict[str, str] = {
+    "python-liquid": "liquid",
+}
 
 
 class RuntimePreflightError(Exception):
@@ -108,7 +112,38 @@ def _find_missing_distributions(requirement_names: Sequence[str]) -> List[str]:
     return missing
 
 
-def _install_requirements(requirements_path: Path) -> None:
+def _module_name_for_requirement(requirement_name: str) -> str:
+    key = str(requirement_name or "").strip().lower()
+    if key in REQUIREMENT_IMPORT_OVERRIDES:
+        return REQUIREMENT_IMPORT_OVERRIDES[key]
+    return str(requirement_name or "").strip().replace("-", "_")
+
+
+def _find_import_failures(requirement_names: Sequence[str]) -> List[Dict[str, str]]:
+    failures: List[Dict[str, str]] = []
+    for raw_name in requirement_names:
+        req_name = str(raw_name or "").strip()
+        if not req_name:
+            continue
+        module_name = _module_name_for_requirement(req_name)
+        try:
+            importlib.import_module(module_name)
+        except Exception as exc:
+            failures.append(
+                {
+                    "requirement": req_name,
+                    "module": module_name,
+                    "error": f"{exc.__class__.__name__}: {exc}",
+                }
+            )
+    return failures
+
+
+def _install_requirements(
+    requirements_path: Path,
+    package_names: Optional[Sequence[str]] = None,
+    force_reinstall: bool = False,
+) -> None:
     base_cmd = [
         sys.executable,
         "-m",
@@ -116,9 +151,16 @@ def _install_requirements(requirements_path: Path) -> None:
         "install",
         "--disable-pip-version-check",
     ]
-    attempts = [
-        base_cmd + ["-r", str(requirements_path)],
-    ]
+    if force_reinstall:
+        base_cmd += ["--upgrade", "--force-reinstall"]
+
+    target_parts: List[str]
+    if package_names:
+        target_parts = [str(name) for name in package_names if str(name).strip()]
+    else:
+        target_parts = ["-r", str(requirements_path)]
+
+    attempts = [base_cmd + target_parts]
     attempted_details: List[Dict[str, Any]] = []
 
     last_proc: Optional[subprocess.CompletedProcess[str]] = None
@@ -179,6 +221,8 @@ def _install_requirements(requirements_path: Path) -> None:
         message="failed to install one or more Python requirements",
         details={
             "requirements_path": str(requirements_path),
+            "package_names": list(package_names or []),
+            "force_reinstall": bool(force_reinstall),
             "exit_code": last_proc.returncode,
             "stdout": _tail(last_proc.stdout or ""),
             "stderr": _tail(last_proc.stderr or ""),
@@ -203,23 +247,46 @@ def run_preflight(
         + (", ".join(requirement_names) if requirement_names else "(none)")
     )
     missing = _find_missing_distributions(requirement_names)
-    if not missing:
-        _stderr("all requirements already installed")
-        return
+    import_failures = _find_import_failures(requirement_names)
 
-    _stderr("missing requirements: " + ", ".join(missing))
-    _install_requirements(req_path)
+    if missing:
+        _stderr("missing requirements: " + ", ".join(missing))
+        _install_requirements(req_path)
+
+    if import_failures:
+        failed_req_names = [item["requirement"] for item in import_failures]
+        _stderr(
+            "requirements with import failures: "
+            + ", ".join(
+                f"{item['requirement']} ({item['module']}: {item['error']})"
+                for item in import_failures
+            )
+        )
+        _stderr(
+            "attempting force reinstall for import-failed packages: "
+            + ", ".join(failed_req_names)
+        )
+        _install_requirements(
+            req_path,
+            package_names=failed_req_names,
+            force_reinstall=True,
+        )
 
     still_missing = _find_missing_distributions(requirement_names)
-    if still_missing:
+    still_import_failures = _find_import_failures(requirement_names)
+    if still_missing or still_import_failures:
         raise RuntimePreflightError(
             code="REQUIREMENTS_VALIDATION_FAILED",
             message="requirements installation completed but some dependencies are still unavailable",
             details={
                 "requirements_path": str(req_path),
                 "missing": still_missing,
+                "import_failures": still_import_failures,
             },
         )
+
+    if not missing and not import_failures:
+        _stderr("all requirements already installed and importable")
     _stderr("requirements installation validated successfully")
 
 
@@ -248,6 +315,8 @@ def main() -> int:
                     _stderr(f"{key}: {details[key]}")
             if "missing" in details:
                 _stderr(f"missing: {details.get('missing')}")
+            if "import_failures" in details:
+                _stderr(f"import_failures: {details.get('import_failures')}")
             attempts = details.get("attempts")
             if isinstance(attempts, list):
                 for idx, attempt in enumerate(attempts, start=1):
