@@ -3,7 +3,7 @@ import sys
 from backend.handlers.context import AppContext
 
 CONFIGURE_PLUGIN_MUTATION = """
-mutation ConfigurePluginRuntime($plugin_id: ID!, $input: PluginConfigInput!) {
+mutation ConfigurePluginRuntime($plugin_id: ID!, $input: Map!) {
   configurePlugin(plugin_id: $plugin_id, input: $input)
 }
 """
