@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import importlib.metadata
 import importlib
+import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -24,6 +26,8 @@ MIN_PYTHON_VERSION: Tuple[int, int] = (3, 9)
 REQUIREMENT_IMPORT_OVERRIDES: Dict[str, str] = {
     "python-liquid": "liquid",
 }
+VENV_ACTIVE_ENV = "STASH_RENAMER_VENV_ACTIVE"
+VENV_DIR_ENV = "STASH_RENAMER_VENV_DIR"
 
 
 class RuntimePreflightError(Exception):
@@ -87,6 +91,30 @@ def _check_python_version(min_version: Tuple[int, int]) -> None:
             "python_executable": sys.executable,
         },
     )
+
+
+def _is_virtualenv_python() -> bool:
+    if bool(os.environ.get("VIRTUAL_ENV")):
+        return True
+    return bool(getattr(sys, "base_prefix", sys.prefix) != sys.prefix)
+
+
+def _venv_dir_from_requirements_path(requirements_path: Path) -> Path:
+    override = str(os.environ.get(VENV_DIR_ENV) or "").strip()
+    if override:
+        return Path(override).expanduser().resolve()
+    return (requirements_path.parent / ".venv_runtime").resolve()
+
+
+def _venv_python_path(venv_dir: Path) -> Path:
+    if os.name == "nt":
+        return venv_dir / "Scripts" / "python.exe"
+    return venv_dir / "bin" / "python"
+
+
+def _requirements_hash(requirements_path: Path) -> str:
+    payload = requirements_path.read_bytes()
+    return hashlib.sha256(payload).hexdigest()
 
 
 def _parse_requirement_names(requirements_path: Path) -> List[str]:
@@ -157,9 +185,12 @@ def _install_requirements(
     requirements_path: Path,
     package_names: Optional[Sequence[str]] = None,
     force_reinstall: bool = False,
+    python_executable: Optional[str] = None,
+    allow_break_system_fallback: bool = True,
 ) -> None:
+    python_cmd = str(python_executable or sys.executable)
     base_cmd = [
-        sys.executable,
+        python_cmd,
         "-m",
         "pip",
         "install",
@@ -205,6 +236,8 @@ def _install_requirements(
         _log_attempt_output(f"pip attempt #{index + 1} stdout tail", proc.stdout or "")
         _log_attempt_output(f"pip attempt #{index + 1} stderr tail", proc.stderr or "")
         if (
+            allow_break_system_fallback
+            and
             index == 0
             and "externally-managed-environment" in stderr_text
             and "--break-system-packages" not in " ".join(cmd)
@@ -239,6 +272,7 @@ def _install_requirements(
             "requirements_path": str(requirements_path),
             "package_names": list(package_names or []),
             "force_reinstall": bool(force_reinstall),
+            "python_executable": python_cmd,
             "exit_code": last_proc.returncode,
             "stdout": _tail(last_proc.stdout or ""),
             "stderr": _tail(last_proc.stderr or ""),
@@ -261,6 +295,116 @@ def _preflight_lock(lock_path: Path):
             _stderr("released preflight lock")
 
 
+def _ensure_venv(requirements_path: Path, min_python: Tuple[int, int]) -> str:
+    venv_dir = _venv_dir_from_requirements_path(requirements_path)
+    python_path = _venv_python_path(venv_dir)
+    marker_path = venv_dir / ".stash_renamer_requirements.sha256"
+
+    if not python_path.exists():
+        _stderr(f"creating local venv at: {venv_dir}")
+        proc = subprocess.run(
+            [sys.executable, "-m", "venv", str(venv_dir)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0:
+            raise RuntimePreflightError(
+                code="VENV_CREATE_FAILED",
+                message="failed to create local virtual environment",
+                details={
+                    "venv_dir": str(venv_dir),
+                    "python_executable": sys.executable,
+                    "exit_code": proc.returncode,
+                    "stdout": _tail(proc.stdout or ""),
+                    "stderr": _tail(proc.stderr or ""),
+                },
+            )
+
+    if not python_path.exists():
+        raise RuntimePreflightError(
+            code="VENV_CREATE_FAILED",
+            message="venv created but python executable was not found",
+            details={"venv_dir": str(venv_dir), "expected_python": str(python_path)},
+        )
+
+    current_hash = _requirements_hash(requirements_path)
+    previous_hash = ""
+    if marker_path.exists():
+        try:
+            previous_hash = marker_path.read_text(encoding="utf-8").strip()
+        except Exception:
+            previous_hash = ""
+
+    if previous_hash != current_hash:
+        _stderr(f"installing requirements in venv using: {python_path}")
+        _install_requirements(
+            requirements_path=requirements_path,
+            python_executable=str(python_path),
+            allow_break_system_fallback=False,
+        )
+        marker_path.write_text(current_hash, encoding="utf-8")
+    else:
+        _stderr("venv requirements are up to date")
+
+    proc = subprocess.run(
+        [str(python_path), "-c", "import sys; print(sys.version)"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimePreflightError(
+            code="VENV_VALIDATION_FAILED",
+            message="venv python validation failed",
+            details={
+                "venv_python": str(python_path),
+                "exit_code": proc.returncode,
+                "stdout": _tail(proc.stdout or ""),
+                "stderr": _tail(proc.stderr or ""),
+            },
+        )
+
+    # Ensure venv interpreter also satisfies minimum version.
+    proc = subprocess.run(
+        [
+            str(python_path),
+            "-c",
+            (
+                "import sys; "
+                "ok=(sys.version_info.major, sys.version_info.minor)>="
+                f"({int(min_python[0])}, {int(min_python[1])}); "
+                "raise SystemExit(0 if ok else 1)"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimePreflightError(
+            code="PYTHON_VERSION_UNSUPPORTED",
+            message="venv python does not meet minimum required version",
+            details={
+                "required": f"{int(min_python[0])}.{int(min_python[1])}+",
+                "venv_python": str(python_path),
+            },
+        )
+
+    return str(python_path)
+
+
+def _reexec_into_venv(venv_python: str, venv_dir: str) -> None:
+    _stderr(f"restarting process with venv python: {venv_python}")
+    env = dict(os.environ)
+    env[VENV_ACTIVE_ENV] = "1"
+    env["VIRTUAL_ENV"] = venv_dir
+    current_path = str(env.get("PATH") or "")
+    venv_bin = str(Path(venv_dir) / ("Scripts" if os.name == "nt" else "bin"))
+    env["PATH"] = f"{venv_bin}{os.pathsep}{current_path}" if current_path else venv_bin
+    os.execve(venv_python, [venv_python, *sys.argv], env)
+
+
 def run_preflight(
     requirements_path: Optional[Path] = None,
     min_python: Tuple[int, int] = MIN_PYTHON_VERSION,
@@ -270,6 +414,7 @@ def run_preflight(
     with _preflight_lock(lock_path):
         _stderr(f"starting preflight; python={sys.executable} version={sys.version}")
         _stderr(f"requirements path: {req_path}")
+        _stderr(f"in_virtualenv: {_is_virtualenv_python()}")
         _stderr(f"usersite: {site.getusersitepackages()}")
         try:
             _stderr(f"sites: {site.getsitepackages()}")
@@ -278,6 +423,15 @@ def run_preflight(
         _stderr(f"sys.path entries: {len(sys.path)}")
 
         _check_python_version(min_python)
+
+        if (
+            not _is_virtualenv_python()
+            and str(os.environ.get(VENV_ACTIVE_ENV) or "").strip() != "1"
+        ):
+            _stderr("not running inside virtualenv; bootstrapping local venv")
+            venv_python = _ensure_venv(req_path, min_python)
+            venv_dir = str(Path(venv_python).parent.parent)
+            _reexec_into_venv(venv_python, venv_dir)
 
         requirement_names = _parse_requirement_names(req_path)
         _stderr(
