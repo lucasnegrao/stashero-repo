@@ -14,6 +14,9 @@ import re
 import subprocess
 import sys
 import traceback
+import fcntl
+import site
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -48,6 +51,15 @@ def _tail(text: str, limit: int = 4000) -> str:
     if len(text) <= limit:
         return text
     return text[-limit:]
+
+
+def _log_attempt_output(prefix: str, output_text: str) -> None:
+    text = str(output_text or "").strip()
+    if not text:
+        return
+    _stderr(prefix)
+    for line in _tail(text).splitlines():
+        _stderr(f"  {line}")
 
 
 def _python_version_str(v: Sequence[int]) -> str:
@@ -127,6 +139,8 @@ def _find_import_failures(requirement_names: Sequence[str]) -> List[Dict[str, st
             continue
         module_name = _module_name_for_requirement(req_name)
         try:
+            importlib.invalidate_caches()
+            sys.modules.pop(module_name, None)
             importlib.import_module(module_name)
         except Exception as exc:
             failures.append(
@@ -188,19 +202,21 @@ def _install_requirements(
         _stderr(
             f"pip attempt #{index + 1} failed with exit code {proc.returncode}"
         )
+        _log_attempt_output(f"pip attempt #{index + 1} stdout tail", proc.stdout or "")
+        _log_attempt_output(f"pip attempt #{index + 1} stderr tail", proc.stderr or "")
         if (
             index == 0
             and "externally-managed-environment" in stderr_text
-            and "--break-system-packages" not in cmd
+            and "--break-system-packages" not in " ".join(cmd)
         ):
             # Homebrew-managed Python / PEP-668: fall back to user install.
             _stderr(
                 "Detected externally managed Python environment; retrying with "
-                "--user --break-system-packages."
+                "--break-system-packages (system), then --user --break-system-packages."
             )
+            attempts.append(base_cmd + ["--break-system-packages"] + target_parts)
             attempts.append(
-                base_cmd
-                + ["--user", "--break-system-packages", "-r", str(requirements_path)]
+                base_cmd + ["--user", "--break-system-packages"] + target_parts
             )
 
     if last_proc is None:
@@ -231,63 +247,95 @@ def _install_requirements(
     )
 
 
+@contextmanager
+def _preflight_lock(lock_path: Path):
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("w", encoding="utf-8") as lock_handle:
+        _stderr(f"waiting for preflight lock: {lock_path}")
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        _stderr("acquired preflight lock")
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+            _stderr("released preflight lock")
+
+
 def run_preflight(
     requirements_path: Optional[Path] = None,
     min_python: Tuple[int, int] = MIN_PYTHON_VERSION,
 ) -> None:
     req_path = requirements_path or (Path(__file__).resolve().parent / "requirements.txt")
-    _stderr(f"starting preflight; python={sys.executable} version={sys.version}")
-    _stderr(f"requirements path: {req_path}")
+    lock_path = Path("/tmp/stash_renamer_runtime_preflight.lock")
+    with _preflight_lock(lock_path):
+        _stderr(f"starting preflight; python={sys.executable} version={sys.version}")
+        _stderr(f"requirements path: {req_path}")
+        _stderr(f"usersite: {site.getusersitepackages()}")
+        try:
+            _stderr(f"sites: {site.getsitepackages()}")
+        except Exception:
+            _stderr("sites: unavailable")
+        _stderr(f"sys.path entries: {len(sys.path)}")
 
-    _check_python_version(min_python)
+        _check_python_version(min_python)
 
-    requirement_names = _parse_requirement_names(req_path)
-    _stderr(
-        "parsed requirements: "
-        + (", ".join(requirement_names) if requirement_names else "(none)")
-    )
-    missing = _find_missing_distributions(requirement_names)
-    import_failures = _find_import_failures(requirement_names)
-
-    if missing:
-        _stderr("missing requirements: " + ", ".join(missing))
-        _install_requirements(req_path)
-
-    if import_failures:
-        failed_req_names = [item["requirement"] for item in import_failures]
+        requirement_names = _parse_requirement_names(req_path)
         _stderr(
-            "requirements with import failures: "
-            + ", ".join(
-                f"{item['requirement']} ({item['module']}: {item['error']})"
-                for item in import_failures
+            "parsed requirements: "
+            + (", ".join(requirement_names) if requirement_names else "(none)")
+        )
+        missing = _find_missing_distributions(requirement_names)
+        import_failures = _find_import_failures(requirement_names)
+
+        if missing:
+            _stderr("missing requirements: " + ", ".join(missing))
+            _install_requirements(req_path)
+
+        if import_failures:
+            failed_req_names = [item["requirement"] for item in import_failures]
+            _stderr(
+                "requirements with import failures: "
+                + ", ".join(
+                    f"{item['requirement']} ({item['module']}: {item['error']})"
+                    for item in import_failures
+                )
             )
-        )
-        _stderr(
-            "attempting force reinstall for import-failed packages: "
-            + ", ".join(failed_req_names)
-        )
-        _install_requirements(
-            req_path,
-            package_names=failed_req_names,
-            force_reinstall=True,
-        )
+            _stderr(
+                "attempting force reinstall for import-failed packages: "
+                + ", ".join(failed_req_names)
+            )
+            _install_requirements(
+                req_path,
+                package_names=failed_req_names,
+                force_reinstall=True,
+            )
 
-    still_missing = _find_missing_distributions(requirement_names)
-    still_import_failures = _find_import_failures(requirement_names)
-    if still_missing or still_import_failures:
-        raise RuntimePreflightError(
-            code="REQUIREMENTS_VALIDATION_FAILED",
-            message="requirements installation completed but some dependencies are still unavailable",
-            details={
-                "requirements_path": str(req_path),
-                "missing": still_missing,
-                "import_failures": still_import_failures,
-            },
-        )
+        still_missing = _find_missing_distributions(requirement_names)
+        still_import_failures = _find_import_failures(requirement_names)
+        if still_missing or still_import_failures:
+            for item in still_import_failures:
+                if (
+                    "IsADirectoryError" in str(item.get("error") or "")
+                    and "/etc/localtime" in str(item.get("error") or "")
+                ):
+                    _stderr(
+                        "Detected import failure tied to /etc/localtime being a directory. "
+                        "In Docker, mount /etc/localtime as a file (or remove that mount) "
+                        "and ensure timezone files are valid."
+                    )
+            raise RuntimePreflightError(
+                code="REQUIREMENTS_VALIDATION_FAILED",
+                message="requirements installation completed but some dependencies are still unavailable",
+                details={
+                    "requirements_path": str(req_path),
+                    "missing": still_missing,
+                    "import_failures": still_import_failures,
+                },
+            )
 
-    if not missing and not import_failures:
-        _stderr("all requirements already installed and importable")
-    _stderr("requirements installation validated successfully")
+        if not missing and not import_failures:
+            _stderr("all requirements already installed and importable")
+        _stderr("requirements installation validated successfully")
 
 
 def to_json_error(error: Exception) -> Dict[str, Any]:

@@ -104,6 +104,12 @@ def main() -> None:
         import traceback
 
         log.LogError(f"Error in stash_renamer: {e}")
+        try:
+            log.LogError(
+                f"Structured error details: {json.dumps(to_json_error(e), ensure_ascii=False)}"
+            )
+        except Exception:
+            pass
         log.LogError(traceback.format_exc())
         output["error"] = to_json_error(e)
 
