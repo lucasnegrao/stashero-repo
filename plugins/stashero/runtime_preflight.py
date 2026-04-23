@@ -12,6 +12,7 @@ import json
 import re
 import subprocess
 import sys
+import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -33,6 +34,16 @@ class RuntimePreflightError(Exception):
         if self.details:
             payload["details"] = self.details
         return payload
+
+
+def _stderr(message: str) -> None:
+    print(f"[runtime_preflight] {message}", file=sys.stderr, flush=True)
+
+
+def _tail(text: str, limit: int = 4000) -> str:
+    if len(text) <= limit:
+        return text
+    return text[-limit:]
 
 
 def _python_version_str(v: Sequence[int]) -> str:
@@ -108,9 +119,11 @@ def _install_requirements(requirements_path: Path) -> None:
     attempts = [
         base_cmd + ["-r", str(requirements_path)],
     ]
+    attempted_details: List[Dict[str, Any]] = []
 
     last_proc: Optional[subprocess.CompletedProcess[str]] = None
     for index, cmd in enumerate(attempts):
+        _stderr(f"pip attempt #{index + 1}: {' '.join(cmd)}")
         proc = subprocess.run(
             cmd,
             capture_output=True,
@@ -118,16 +131,31 @@ def _install_requirements(requirements_path: Path) -> None:
             check=False,
         )
         last_proc = proc
+        attempt_item = {
+            "command": cmd,
+            "exit_code": proc.returncode,
+            "stdout": _tail(proc.stdout or ""),
+            "stderr": _tail(proc.stderr or ""),
+        }
+        attempted_details.append(attempt_item)
         if proc.returncode == 0:
+            _stderr(f"pip attempt #{index + 1} succeeded")
             return
 
         stderr_text = (proc.stderr or "").lower()
+        _stderr(
+            f"pip attempt #{index + 1} failed with exit code {proc.returncode}"
+        )
         if (
             index == 0
             and "externally-managed-environment" in stderr_text
             and "--break-system-packages" not in cmd
         ):
             # Homebrew-managed Python / PEP-668: fall back to user install.
+            _stderr(
+                "Detected externally managed Python environment; retrying with "
+                "--user --break-system-packages."
+            )
             attempts.append(
                 base_cmd
                 + ["--user", "--break-system-packages", "-r", str(requirements_path)]
@@ -142,6 +170,7 @@ def _install_requirements(requirements_path: Path) -> None:
                 "exit_code": -1,
                 "stdout": "",
                 "stderr": "pip install did not execute",
+                "attempts": attempted_details,
             },
         )
 
@@ -151,8 +180,9 @@ def _install_requirements(requirements_path: Path) -> None:
         details={
             "requirements_path": str(requirements_path),
             "exit_code": last_proc.returncode,
-            "stdout": (last_proc.stdout or "")[-4000:],
-            "stderr": (last_proc.stderr or "")[-4000:],
+            "stdout": _tail(last_proc.stdout or ""),
+            "stderr": _tail(last_proc.stderr or ""),
+            "attempts": attempted_details,
         },
     )
 
@@ -162,14 +192,22 @@ def run_preflight(
     min_python: Tuple[int, int] = MIN_PYTHON_VERSION,
 ) -> None:
     req_path = requirements_path or (Path(__file__).resolve().parent / "requirements.txt")
+    _stderr(f"starting preflight; python={sys.executable} version={sys.version}")
+    _stderr(f"requirements path: {req_path}")
 
     _check_python_version(min_python)
 
     requirement_names = _parse_requirement_names(req_path)
+    _stderr(
+        "parsed requirements: "
+        + (", ".join(requirement_names) if requirement_names else "(none)")
+    )
     missing = _find_missing_distributions(requirement_names)
     if not missing:
+        _stderr("all requirements already installed")
         return
 
+    _stderr("missing requirements: " + ", ".join(missing))
     _install_requirements(req_path)
 
     still_missing = _find_missing_distributions(requirement_names)
@@ -182,6 +220,7 @@ def run_preflight(
                 "missing": still_missing,
             },
         )
+    _stderr("requirements installation validated successfully")
 
 
 def to_json_error(error: Exception) -> Dict[str, Any]:
@@ -199,6 +238,31 @@ def main() -> int:
         run_preflight()
         return 0
     except Exception as exc:
+        _stderr("preflight failed")
+        if isinstance(exc, RuntimePreflightError):
+            _stderr(f"error code: {exc.code}")
+            _stderr(f"message: {exc.message}")
+            details = exc.details or {}
+            for key in ["requirements_path", "required", "current", "python_executable"]:
+                if key in details:
+                    _stderr(f"{key}: {details[key]}")
+            if "missing" in details:
+                _stderr(f"missing: {details.get('missing')}")
+            attempts = details.get("attempts")
+            if isinstance(attempts, list):
+                for idx, attempt in enumerate(attempts, start=1):
+                    cmd = attempt.get("command")
+                    code = attempt.get("exit_code")
+                    _stderr(f"attempt[{idx}] exit_code={code} command={cmd}")
+                    out = str(attempt.get("stdout") or "").strip()
+                    err = str(attempt.get("stderr") or "").strip()
+                    if out:
+                        _stderr(f"attempt[{idx}] stdout tail:\n{out}")
+                    if err:
+                        _stderr(f"attempt[{idx}] stderr tail:\n{err}")
+        else:
+            _stderr(traceback.format_exc())
+
         payload = {
             "error": to_json_error(exc),
         }
