@@ -6,7 +6,7 @@ import sys
 from typing import Any, Dict, Optional
 
 import backend.services.stash_log as log
-from runtime_preflight import run_preflight, to_json_error
+from backend.services.runtime_preflight import run_preflight, to_json_error
 
 
 def read_json_input() -> Optional[Dict[str, Any]]:
