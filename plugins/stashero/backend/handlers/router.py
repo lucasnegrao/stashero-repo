@@ -21,6 +21,7 @@ from backend.handlers.system import (
     handle_list_selectors,
     handle_ffmpeg_proxy_enable,
     handle_ffmpeg_proxy_reverse,
+    handle_runtime_service_install,
 )
 from backend.handlers.watchdog import (
     handle_watchdog_run,
@@ -55,6 +56,7 @@ ROUTES: Dict[str, HandlerFunc] = {
     "system:list_selectors": handle_list_selectors,
     "system:ffmpeg_proxy_enable": handle_ffmpeg_proxy_enable,
     "system:ffmpeg_proxy_reverse": handle_ffmpeg_proxy_reverse,
+    "system:runtime_service_install": handle_runtime_service_install,
     "watchdog:run": handle_watchdog_run,
     "watchdog:stop": handle_watchdog_stop,
     "watchdog:status": handle_watchdog_status,

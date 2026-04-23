@@ -36,9 +36,13 @@ class FFmpegProxyService:
         self,
         gql_call: Callable[[str, Optional[dict]], dict],
         log_print: Callable[[str], None],
+        python_executable: Optional[str] = None,
     ):
         self._gql_call = gql_call
         self._log_print = log_print
+        self._python_executable = str(python_executable or "").strip() or str(
+            sys.executable or "python3"
+        )
 
     def enable(self, options: Dict[str, Any]) -> Dict[str, Any]:
         runtime_dir = self._runtime_dir(options)
@@ -47,7 +51,9 @@ class FFmpegProxyService:
         log_path = runtime_dir / "ffmpeg_proxy_commands.log"
         watchdog_log_path = runtime_dir / "ffmpeg_proxy_watchdog.log"
         startup_script_path = self._watchdog_startup_script_path(options)
-        python_executable = str(sys.executable or "python3")
+        python_executable = str(
+            options.get("python_path") or self._python_executable or "python3"
+        ).strip()
         server_address = self._localhost_server_address(options)
         api_key = str(
             options.get("apiKey") or options.get("api_key") or ""

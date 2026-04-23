@@ -31,6 +31,9 @@ def run(options: dict, collect_operations: bool = False):
     debug_mode = to_bool(options.get("debug_mode", True))
     logger = LoggerService(debug_mode=debug_mode)
     logger.info(f"Running in {mode} mode, options: {options}")
+    runtime_python_path = str(
+        options.get("python_path") or options.get("pythonPath") or ""
+    ).strip()
 
     gql_config = GraphQLConfig(
         server_url=str(server_url),
@@ -41,12 +44,14 @@ def run(options: dict, collect_operations: bool = False):
         db_path=str(options.get("operations_db_path") or "rename_operations.db"),
         gql_config=gql_config,
         log_print=logger.debug if using_log else (lambda _msg: None),
+        python_executable=runtime_python_path or None,
     )
 
     gql = GraphQLService(gql_config)
     ffmpeg_proxy = FFmpegProxyService(
         gql_call=gql.call,
         log_print=logger.debug if using_log else (lambda _msg: None),
+        python_executable=runtime_python_path or None,
     )
 
     mover = FileMover(

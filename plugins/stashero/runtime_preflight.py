@@ -225,6 +225,8 @@ def _install_requirements(
             "stderr": _tail(proc.stderr or ""),
         }
         attempted_details.append(attempt_item)
+        _log_attempt_output(f"pip attempt #{index + 1} stdout tail", proc.stdout or "")
+        _log_attempt_output(f"pip attempt #{index + 1} stderr tail", proc.stderr or "")
         if proc.returncode == 0:
             _stderr(f"pip attempt #{index + 1} succeeded")
             return
@@ -233,8 +235,6 @@ def _install_requirements(
         _stderr(
             f"pip attempt #{index + 1} failed with exit code {proc.returncode}"
         )
-        _log_attempt_output(f"pip attempt #{index + 1} stdout tail", proc.stdout or "")
-        _log_attempt_output(f"pip attempt #{index + 1} stderr tail", proc.stderr or "")
         if (
             allow_break_system_fallback
             and

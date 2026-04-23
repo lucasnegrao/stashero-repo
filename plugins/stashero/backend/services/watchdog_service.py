@@ -14,10 +14,17 @@ from backend.services.graphql import GraphQLConfig
 
 
 class WatchdogService:
-    def __init__(self, db_path: str, gql_config: GraphQLConfig, log_print):
+    def __init__(
+        self,
+        db_path: str,
+        gql_config: GraphQLConfig,
+        log_print,
+        python_executable: Optional[str] = None,
+    ):
         self._store = DBService(db_path)
         self._gql_config = gql_config
         self._log_print = log_print
+        self._python_executable = str(python_executable or "").strip() or sys.executable
 
     def run(self, options: Dict[str, Any]) -> Dict[str, Any]:
         runtime_dir = self._runtime_dir(options)
@@ -305,7 +312,7 @@ class WatchdogService:
         log_path = runtime_dir / "watchdog.log"
         worker_path = f"{plugin_dir}/backend/services/watchdog_worker.py"
 
-        python_exe = sys.executable
+        python_exe = self._python_executable
         cmd = [
             python_exe,
             worker_path,
