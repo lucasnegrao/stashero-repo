@@ -27,7 +27,7 @@ def _hook_batch_identity(hook_type: str) -> Dict[str, str]:
     if not normalized:
         normalized = "scene_update_post"
     return {
-        "batch_id": f"stash_renamer_hook_batch__{normalized}",
+        "batch_id": f"stashero_hook_batch__{normalized}",
         "batch_mode": f"hook:{raw_hook}",
     }
 
@@ -171,7 +171,7 @@ def handle_run(options: Dict[str, Any], ctx: AppContext):
             args_map["path_template"] = path_template
 
         variables = {
-            "plugin_id": "stash_renamer",
+            "plugin_id": "stashero",
             "description": f"Stash Renamer: Hook execution for {template_name}",
             "args_map": args_map,
         }

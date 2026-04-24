@@ -1,4 +1,4 @@
-"""GraphQL query and mutation definitions for stash_renamer."""
+"""GraphQL query and mutation definitions for stashero."""
 
 INTROSPECTION_TYPE_QUERY = """
 query IntrospectType($typeName: String!) {

@@ -310,7 +310,7 @@ def os_getpid() -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Detached watchdog worker for stash_renamer")
+    parser = argparse.ArgumentParser(description="Detached watchdog worker for stashero")
     parser.add_argument("--runtime-dir", required=True)
     args = parser.parse_args()
 

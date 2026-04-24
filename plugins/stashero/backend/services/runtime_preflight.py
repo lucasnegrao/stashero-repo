@@ -25,8 +25,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from backend.services import stash_log as log
 
 MIN_PYTHON_VERSION: Tuple[int, int] = (3, 9)
-VENV_ACTIVE_ENV = "STASH_RENAMER_VENV_ACTIVE"
-VENV_DIR_ENV = "STASH_RENAMER_VENV_DIR"
+VENV_ACTIVE_ENV = "STASHERO_VENV_ACTIVE"
+VENV_DIR_ENV = "STASHERO_VENV_DIR"
 REQUIREMENT_IMPORT_OVERRIDES: Dict[str, str] = {
     "python-liquid": "liquid",
 }
@@ -223,7 +223,7 @@ def _preflight_lock(lock_path: Path):
 def _ensure_venv(requirements_path: Path, min_python: Tuple[int, int]) -> str:
     venv_dir = _venv_dir(requirements_path)
     venv_python = _venv_python(venv_dir)
-    marker_path = venv_dir / ".stash_renamer_requirements.sha256"
+    marker_path = venv_dir / ".stashero_requirements.sha256"
 
     if not venv_python.exists():
         _info(f"creating venv at: {venv_dir}")

@@ -103,7 +103,7 @@ def main() -> None:
     except Exception as e:
         import traceback
 
-        log.LogError(f"Error in stash_renamer: {e}")
+        log.LogError(f"Error in stashero: {e}")
         try:
             log.LogError(
                 f"Structured error details: {json.dumps(to_json_error(e), ensure_ascii=False)}"

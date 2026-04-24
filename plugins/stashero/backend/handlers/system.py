@@ -25,7 +25,7 @@ def handle_ffmpeg_proxy_reverse(options: Dict[str, Any], ctx: AppContext):
 
 
 def handle_runtime_service_install(options: Dict[str, Any], ctx: AppContext):
-    plugin_id = str(options.get("plugin_id") or "stash_renamer").strip()
+    plugin_id = str(options.get("plugin_id") or "stashero").strip()
     if not plugin_id:
         raise ValueError("plugin_id is required")
 

@@ -1,6 +1,6 @@
 # Backend Operations & Arguments
 
-The Python backend for `stash_renamer` acts as a multi-modal plugin command center. Every operation is triggered by passing a specific `mode` string within the arguments payload.
+The Python backend for `stashero` acts as a multi-modal plugin command center. Every operation is triggered by passing a specific `mode` string within the arguments payload.
 
 ## Global Options
 These arguments apply to the application globally or dictate its runtime state and are passed alongside the mode.

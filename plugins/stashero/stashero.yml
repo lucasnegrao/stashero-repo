@@ -1,13 +1,13 @@
 name: Scene Renamer
 description: Rename scene files based on metadata with customizable templates
 version: 1.0.0
-url: https://github.com/lucasnegrao/stash_renamer
+url: https://github.com/lucasnegrao/stashero
 ui:
   javascript:
     - "ui/bundle.js"
 exec:
   - python3
-  - "{pluginDir}/stash_renamer.py"
+  - "{pluginDir}/stashero.py"
 interface: raw
 
 hooks:

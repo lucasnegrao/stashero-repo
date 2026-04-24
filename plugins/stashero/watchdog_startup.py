@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wait for Stash system status to be OK, then start stash_renamer watchdog task."""
+"""Wait for Stash system status to be OK, then start stashero watchdog task."""
 
 import argparse
 import sys
@@ -21,7 +21,7 @@ query {
 START_WATCHDOG_MUTATION = """
 mutation {
   runPluginTask(
-    plugin_id: "stash_renamer",
+    plugin_id: "stashero",
     description: "Starting watchdog",
     args_map: { mode: "watchdog:run" }
   )
@@ -121,7 +121,7 @@ def run(config: Config) -> int:
 def parse_args(argv: list[str]) -> Config:
     parser = argparse.ArgumentParser(
         description=(
-            "Wait for Stash systemStatus=OK and run stash_renamer watchdog:run via runPluginTask."
+            "Wait for Stash systemStatus=OK and run stashero watchdog:run via runPluginTask."
         )
     )
     parser.add_argument("server_address", help="Stash server address (host[:port] or full URL)")
