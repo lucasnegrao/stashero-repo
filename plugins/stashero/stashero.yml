@@ -3,10 +3,11 @@ description: Rename scene files based on metadata with customizable templates
 version: 0.5
 url: https://github.com/lucasnegrao/stashero
 ui:
+  css:
+    - "ui/src/styles/stashero.css"
   javascript:
     - "ui/bundle.js"
-  css:
-    - "ui/styles/stashero.css"
+
 
 exec:
   - python3

@@ -3,10 +3,13 @@
 
 import json
 import sys
+import traceback
 from typing import Any, Dict, Optional
 
-import backend.services.stash_log as log
+from backend.services.logger import LoggerService
 from backend.services.runtime_preflight import run_preflight, to_json_error
+
+log = LoggerService(debug_mode=True)
 
 
 def read_json_input() -> Optional[Dict[str, Any]]:
@@ -62,16 +65,29 @@ def normalize_input_args(raw_args: Any) -> Dict[str, Any]:
     raise Exception("Expected input args to be a map/object or PluginArgInput list")
 
 
-def main() -> None:
+def _build_error_payload(error: Exception, stage: str) -> Dict[str, Any]:
+    payload = to_json_error(error)
+    details = payload.get("details")
+    if not isinstance(details, dict):
+        details = {}
+        payload["details"] = details
+    details["stage"] = stage
+    details["exception_type"] = error.__class__.__name__
+    return payload
+
+
+def main() -> int:
     output: Dict[str, Any] = {}
+    exit_code = 0
+
     try:
         run_preflight()
 
         input_data = read_json_input()
         if not input_data:
-            raise Exception("No input received from Stash")
+            raise ValueError("No input received from Stash")
 
-        log.LogTrace(f"Input data: {input_data}")
+        log.trace(f"Input data: {input_data}")
         args = normalize_input_args(input_data.get("args"))
         server_conn = input_data.get("server_connection") or {}
 
@@ -86,11 +102,6 @@ def main() -> None:
         options["cookie_value"] = session_cookie.get("Value", "")
         options["PluginDir"] = server_conn.get("PluginDir", "")
 
-        source_map = {k: "args" for k in args.keys()}
-        source_map["server_url"] = "server_connection"
-        source_map["cookie_name"] = "server_connection"
-        source_map["cookie_value"] = "server_connection"
-
         from backend.app import run
 
         result = run(options, collect_operations=True)
@@ -100,21 +111,32 @@ def main() -> None:
             operations = result or []
             output["output"] = {"operations": operations}
 
-    except Exception as e:
-        import traceback
-
-        log.LogError(f"Error in stashero {e}")
+    except Exception as error:
+        exit_code = 1
+        payload = _build_error_payload(error, stage="entrypoint")
+        output["error"] = payload
+        log.error(f"Stashero failed: {error}")
         try:
-            log.LogError(
-                f"{json.dumps(to_json_error(e), ensure_ascii=False)}"
-            )
+            log.error(json.dumps(payload, ensure_ascii=False))
         except Exception:
             pass
-        log.LogError(traceback.format_exc())
-        output["error"] = to_json_error(e)
+        log.error(traceback.format_exc())
 
-    print(json.dumps(output), flush=True)
+    try:
+        print(json.dumps(output), flush=True)
+    except Exception as print_error:
+        fallback = {
+            "error": {
+                "code": "OUTPUT_SERIALIZATION_FAILED",
+                "message": str(print_error),
+                "details": {"exception_type": print_error.__class__.__name__},
+            }
+        }
+        print(json.dumps(fallback), flush=True)
+        return 1
+
+    return exit_code
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
