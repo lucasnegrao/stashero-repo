@@ -4,10 +4,9 @@ version: 0.5
 url: https://github.com/lucasnegrao/stashero
 ui:
   css:
-    - "ui/dist/stashero.css"
+    - ui/dist/stashero.css
   javascript:
-    - "ui/bundle.js"
-
+    - ui/bundle.js
 
 exec:
   - python3
@@ -16,7 +15,7 @@ interface: raw
 
 hooks:
   - name: Rename Scene On Update
-    description: Run configured rename templates after scene updates
+    description: Run configured penis templates after scene updates
     triggeredBy:
       - Scene.Update.Post
     defaultArgs:
