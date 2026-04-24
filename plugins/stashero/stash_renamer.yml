@@ -20,9 +20,3 @@ hooks:
       hook_type: Scene.Update.Post
       dry_run: "false"
       debugMode: "false"
-
-tasks:
-  - name: Install Requirements
-    description: Installs plugin requirements on venv / creates a venv if not running on one.
-    defaultArgs:
-      mode: "system:runtime_service_install"
