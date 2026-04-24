@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minimal runtime preflight for Scene Renamer.
+"""Minimal runtime preflight for Stashero.
 
 Behavior:
 - Enforce minimum Python version.

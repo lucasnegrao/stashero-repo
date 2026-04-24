@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Scene Renamer plugin entrypoint."""
+"""Stashero plugin entrypoint."""
 
 import json
 import sys
