@@ -4,7 +4,7 @@ version: 0.5
 url: https://github.com/lucasnegrao/stashero
 ui:
   css:
-    - "ui/src/styles/stashero.css"
+    - "ui/dist/stashero.css"
   javascript:
     - "ui/bundle.js"
 
