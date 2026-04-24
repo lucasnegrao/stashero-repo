@@ -78,5 +78,5 @@ These arguments apply to the application globally or dictate its runtime state a
 
 ### Misc
 * **`system:list_selectors`**: Introspects the GraphQL schema and builds the autocomplete token tree (for the UI code editor).
-* **`system:ffmpeg_proxy_enable`**: Creates an OS-specific ffmpeg wrapper script inside plugin runtime (`.ffmpeg_proxy/`), logs invoked ffmpeg arguments to a file in that same directory, and updates Stash `configuration.general.ffmpegPath` to the wrapper path.
-* **`system:ffmpeg_proxy_reverse`**: If the wrapper script exists, restores Stash `configuration.general.ffmpegPath` to the original path captured during enable using `configureGeneral`.
+* **`system:run_with_stash_enable`**: Creates an OS-specific ffmpeg wrapper script inside plugin runtime (`.run_with_stash/`), logs invoked ffmpeg arguments to a file in that same directory, and updates Stash `configuration.general.ffmpegPath` to the wrapper path.
+* **`system:run_with_stash_reverse`**: If the wrapper script exists, restores Stash `configuration.general.ffmpegPath` to the original path captured during enable using `configureGeneral`.

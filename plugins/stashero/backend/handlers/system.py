@@ -16,12 +16,12 @@ def handle_list_selectors(options: Dict[str, Any], ctx: AppContext):
     return ctx.tagger.build_selectors_catalog()
 
 
-def handle_ffmpeg_proxy_enable(options: Dict[str, Any], ctx: AppContext):
-    return {"ffmpeg_proxy": ctx.ffmpeg_proxy.enable(options)}
+def handle_run_with_stash_enable(options: Dict[str, Any], ctx: AppContext):
+    return {"run_with_stash": ctx.run_with_stash.enable(options)}
 
 
-def handle_ffmpeg_proxy_reverse(options: Dict[str, Any], ctx: AppContext):
-    return {"ffmpeg_proxy": ctx.ffmpeg_proxy.reverse(options)}
+def handle_run_with_stash_reverse(options: Dict[str, Any], ctx: AppContext):
+    return {"run_with_stash": ctx.run_with_stash.reverse(options)}
 
 
 def handle_runtime_service_install(options: Dict[str, Any], ctx: AppContext):

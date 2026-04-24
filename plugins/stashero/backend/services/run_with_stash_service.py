@@ -29,9 +29,9 @@ mutation ConfigureGeneral($input: ConfigGeneralInput!) {
 """
 
 
-class FFmpegProxyService:
-    _SCRIPT_TEMPLATE_SH = "ffmpeg_proxy.sh.tpl"
-    _SCRIPT_TEMPLATE_CMD = "ffmpeg_proxy.cmd.tpl"
+class RunWithStashService:
+    _SCRIPT_TEMPLATE_SH = "run_with_stash.sh.tpl"
+    _SCRIPT_TEMPLATE_CMD = "run_with_stash.cmd.tpl"
 
     def __init__(
         self,
@@ -49,8 +49,8 @@ class FFmpegProxyService:
         runtime_dir = self._runtime_dir(options)
         script_path = self._script_path(runtime_dir)
         state_path = self._state_path(runtime_dir)
-        log_path = runtime_dir / "ffmpeg_proxy_commands.log"
-        watchdog_log_path = runtime_dir / "ffmpeg_proxy_watchdog.log"
+        log_path = runtime_dir / "run_with_stash_commands.log"
+        watchdog_log_path = runtime_dir / "run_with_stash_watchdog.log"
         startup_script_path = self._watchdog_startup_script_path(options)
         python_executable = str(
             options.get("python_path") or self._python_executable or "python3"
@@ -187,7 +187,7 @@ class FFmpegProxyService:
             options.get("PluginPath") or options.get("PluginDir") or ""
         ).strip()
         base = Path(plugin_dir).resolve() if plugin_dir else Path.cwd().resolve()
-        runtime_dir = base / ".ffmpeg_proxy"
+        runtime_dir = base / ".run_with_stash"
         runtime_dir.mkdir(parents=True, exist_ok=True)
         return runtime_dir
 
@@ -209,11 +209,11 @@ class FFmpegProxyService:
     @staticmethod
     def _script_path(runtime_dir: Path) -> Path:
         extension = ".cmd" if os.name == "nt" else ".sh"
-        return runtime_dir / f"ffmpeg_proxy{extension}"
+        return runtime_dir / f"run_with_stash{extension}"
 
     @staticmethod
     def _state_path(runtime_dir: Path) -> Path:
-        return runtime_dir / "ffmpeg_proxy_state.json"
+        return runtime_dir / "run_with_stash_state.json"
 
     @staticmethod
     def _read_state(state_path: Path) -> Optional[Dict[str, Any]]:
@@ -253,10 +253,10 @@ class FFmpegProxyService:
             server_escaped = server_address.replace('"', '""')
             api_key_escaped = api_key.replace('"', '""')
             trigger_escaped = trigger_args.replace('"', '""')
-            template = FFmpegProxyService._load_script_template(
-                FFmpegProxyService._SCRIPT_TEMPLATE_CMD
+            template = RunWithStashService._load_script_template(
+                RunWithStashService._SCRIPT_TEMPLATE_CMD
             )
-            return FFmpegProxyService._render_script_template(
+            return RunWithStashService._render_script_template(
                 template=template,
                 replacements={
                     "{{LOG_FILE}}": log_escaped,
@@ -278,10 +278,10 @@ class FFmpegProxyService:
         escaped_server = server_address.replace("\\", "\\\\").replace('"', '\\"')
         escaped_api_key = api_key.replace("\\", "\\\\").replace('"', '\\"')
         escaped_trigger = trigger_args.replace("\\", "\\\\").replace('"', '\\"')
-        template = FFmpegProxyService._load_script_template(
-            FFmpegProxyService._SCRIPT_TEMPLATE_SH
+        template = RunWithStashService._load_script_template(
+            RunWithStashService._SCRIPT_TEMPLATE_SH
         )
-        return FFmpegProxyService._render_script_template(
+        return RunWithStashService._render_script_template(
             template=template,
             replacements={
                 "{{LOG_FILE}}": escaped_log,
@@ -301,7 +301,7 @@ class FFmpegProxyService:
 
     @staticmethod
     def _load_script_template(template_name: str) -> str:
-        path = FFmpegProxyService._script_templates_dir() / template_name
+        path = RunWithStashService._script_templates_dir() / template_name
         if not path.exists():
             raise FileNotFoundError(f"Missing ffmpeg proxy script template: {path}")
         return path.read_text(encoding="utf-8")

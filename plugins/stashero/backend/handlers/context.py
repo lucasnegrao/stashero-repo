@@ -6,7 +6,7 @@ from backend.services.template_service import TemplateService
 from backend.services.GraphQLTagger import GraphQLTagger
 from backend.services.undo_service import UndoService
 from backend.services.watchdog_service import WatchdogService
-from backend.services.ffmpeg_proxy_service import FFmpegProxyService
+from backend.services.run_with_stash_service import RunWithStashService
 from backend.renamer.engine import RenamerEngine
 
 
@@ -20,7 +20,7 @@ class AppContext:
     undo: UndoService
     engine: RenamerEngine
     watchdog: WatchdogService
-    ffmpeg_proxy: FFmpegProxyService
+    run_with_stash: RunWithStashService
     collect_operations: bool
     debug_mode: bool
     dry_run: bool

@@ -19,8 +19,8 @@ from backend.handlers.hook import handle_get_settings, handle_save_settings, han
 from backend.handlers.rename import handle_rename, handle_preview_dry_run
 from backend.handlers.system import (
     handle_list_selectors,
-    handle_ffmpeg_proxy_enable,
-    handle_ffmpeg_proxy_reverse,
+    handle_run_with_stash_enable,
+    handle_run_with_stash_reverse,
     handle_runtime_service_install,
 )
 from backend.handlers.watchdog import (
@@ -54,8 +54,8 @@ ROUTES: Dict[str, HandlerFunc] = {
     "rename:run": handle_rename,
     "rename:preview_dry_run": handle_preview_dry_run,
     "system:list_selectors": handle_list_selectors,
-    "system:ffmpeg_proxy_enable": handle_ffmpeg_proxy_enable,
-    "system:ffmpeg_proxy_reverse": handle_ffmpeg_proxy_reverse,
+    "system:run_with_stash_enable": handle_run_with_stash_enable,
+    "system:run_with_stash_reverse": handle_run_with_stash_reverse,
     "system:runtime_service_install": handle_runtime_service_install,
     "watchdog:run": handle_watchdog_run,
     "watchdog:stop": handle_watchdog_stop,

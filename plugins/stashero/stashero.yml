@@ -1,6 +1,6 @@
 name: Stashero
 description: Rename scene files based on metadata with customizable templates
-version: 1.0.0
+version: 0.5
 url: https://github.com/lucasnegrao/stashero
 ui:
   javascript:

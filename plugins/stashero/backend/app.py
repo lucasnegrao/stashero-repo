@@ -7,7 +7,7 @@ from backend.services.template_service import TemplateService
 from backend.services.GraphQLTagger import GraphQLTagger
 from backend.services.undo_service import UndoService
 from backend.services.watchdog_service import WatchdogService
-from backend.services.ffmpeg_proxy_service import FFmpegProxyService
+from backend.services.run_with_stash_service import RunWithStashService
 from backend.handlers.context import AppContext
 from backend.handlers.router import ROUTES
 from backend.handlers.utils import to_bool
@@ -48,7 +48,7 @@ def run(options: dict, collect_operations: bool = False):
     )
 
     gql = GraphQLService(gql_config)
-    ffmpeg_proxy = FFmpegProxyService(
+    run_with_stash = RunWithStashService(
         gql_call=gql.call,
         log_print=logger.debug if using_log else (lambda _msg: None),
         python_executable=runtime_python_path or None,
@@ -94,7 +94,7 @@ def run(options: dict, collect_operations: bool = False):
         undo=undo,
         engine=engine,
         watchdog=watchdog,
-        ffmpeg_proxy=ffmpeg_proxy,
+        run_with_stash=run_with_stash,
         collect_operations=collect_operations,
         debug_mode=debug_mode,
         dry_run=dry_run,
