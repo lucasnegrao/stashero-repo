@@ -112,12 +112,9 @@ def build_field_tree_from_templates(
     groups_node = tree.get("groups")
     if isinstance(groups_node, dict):
         groups_node.setdefault("scene_index", {})
-        group_node = groups_node.get("group")
-        if not isinstance(group_node, dict):
-            groups_node["group"] = {"id": {}, "name": {}}
-        else:
-            group_node.setdefault("id", {})
-            group_node.setdefault("name", {})
+        group_node = groups_node.setdefault("group", {})
+        group_node.setdefault("id", {})
+        group_node.setdefault("name", {})
 
     if "performers" in tree and isinstance(tree["performers"], dict):
         tree["performers"].setdefault("name", {})

@@ -323,9 +323,11 @@ class WatchdogService:
         # # we need to attach rundtime_dir to current ENV so popen can resolve the modules
         current_env = os.environ.copy()
 
-        current_env["PYTHONPATH"] = (
-            f"{plugin_dir}{os.pathsep}{current_env['PYTHONPATH']}"
-        )
+        existing_pythonpath = str(current_env.get("PYTHONPATH") or "").strip()
+        if existing_pythonpath:
+            current_env["PYTHONPATH"] = f"{plugin_dir}{os.pathsep}{existing_pythonpath}"
+        else:
+            current_env["PYTHONPATH"] = str(plugin_dir)
 
         stdout_handle = open(log_path, "a", encoding="utf-8")
         stderr_handle = open(log_path, "a", encoding="utf-8")

@@ -323,11 +323,6 @@ class GraphQLTagger:
                 return []
             current_type = next_type
 
-        if not isinstance(field_meta, dict) or not bool(
-            field_meta.get("is_object_like")
-        ):
-            return []
-
         child_fields = self._introspect_type_fields(current_type)
         scalar_children: List[str] = []
         for child in child_fields:

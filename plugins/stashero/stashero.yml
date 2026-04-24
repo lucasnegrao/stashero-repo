@@ -5,6 +5,9 @@ url: https://github.com/lucasnegrao/stashero
 ui:
   javascript:
     - "ui/bundle.js"
+  css:
+    - "ui/styles/stashero.css"
+
 exec:
   - python3
   - "{pluginDir}/stashero.py"

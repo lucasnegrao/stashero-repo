@@ -87,7 +87,7 @@ class RunWithStashService:
             api_key=api_key,
         )
         script_path.write_text(script_body, encoding="utf-8")
-        if os.name != "nt":
+        if self._needs_executable_bit():
             script_path.chmod(0o755)
 
         new_state = {
@@ -214,6 +214,10 @@ class RunWithStashService:
     @staticmethod
     def _state_path(runtime_dir: Path) -> Path:
         return runtime_dir / "run_with_stash_state.json"
+
+    @staticmethod
+    def _needs_executable_bit() -> bool:
+        return os.name != "nt"
 
     @staticmethod
     def _read_state(state_path: Path) -> Optional[Dict[str, Any]]:

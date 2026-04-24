@@ -145,8 +145,6 @@ class RenamerEngine:
 
         def _log_progress() -> None:
             nonlocal last_emitted_pct
-            if total_scenes <= 0:
-                return
 
             pct_float = processed / total_scenes
             pct_int = int(pct_float * 100)
