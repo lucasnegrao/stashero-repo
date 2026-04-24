@@ -1,0 +1,74 @@
+.stash-renamer-page {
+	--sr-main-toolbar-offset: 48.75px;
+	--sr-tabs-height: 46px;
+}
+
+.sr-toggle-checkbox-btn > input,
+.sr-toggle-checkbox-btn input[type="checkbox"],
+.sr-toggle-checkbox-btn input[type="radio"],
+.sr-toggle-checkbox-btn .btn-check {
+	display: none !important;
+	width: 0 !important;
+	height: 0 !important;
+	opacity: 0 !important;
+	pointer-events: none !important;
+	position: absolute !important;
+}
+
+.scene-token-root .sr-collapse-button {
+	display: inline-flex !important;
+	align-items: center;
+	flex-wrap: nowrap !important;
+	gap: 0.25rem;
+	max-width: 100%;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: visible;
+}
+
+.scene-token-root .sr-collapse-button .svg-inline--fa,
+.scene-token-root .sr-collapse-button svg {
+	flex: 0 0 auto;
+}
+
+.scene-token-root .sr-collapse-button-label {
+	display: inline-block;
+	min-width: 0;
+	max-width: 100%;
+	white-space: nowrap;
+	overflow: visible;
+	text-overflow: ellipsis;
+}
+
+.stash-renamer-page .alert {
+	padding: 0.4rem 1rem !important;
+}
+.stash-renamer-table {
+	border: unset;
+}
+.stash-renamer-table th {
+	align-content: center;
+}
+.stash-renamer-table .table-cell-content li,
+.stash-renamer-table .table-cell-content ul {
+	margin: 0;
+
+	display: block;
+	padding: 0;
+}
+.stash-renamer-table td {
+	align-content: center;
+}
+.stash-renamer-list-path-badge {
+	font-size: 80%;
+	font-weight: 700;
+	line-height: 1.2;
+	overflow-wrap: anywhere;
+	text-align: left;
+	white-space: unset;
+	word-wrap: anywhere;
+}
+
+.stash-renamer-page .pagination-footer .pagination.btn-group {
+	box-shadow: 0 8px 10px 2px rgba(0, 0, 0, 0.3);
+}
